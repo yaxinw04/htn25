@@ -25,6 +25,16 @@ class ArrowGUI:
         self.direction_count = 0  # Counter for directions shown
         self.is_resting = False  # Track if we're in a rest period
         
+        # Balanced data collection tracking
+        self.directions = ["UP", "DOWN", "LEFT", "RIGHT"]
+        self.direction_counts = {direction: 0 for direction in self.directions}
+        self.directions_per_session = 12  # Total directions per session
+        self.directions_per_class = 3     # Directions per class (12/4 = 3)
+        self.current_session_directions = []  # Track directions in current session
+        self.session_number = 0  # Track session count
+        self.total_sets = 1  # Number of sets to collect
+        self.current_set = 0  # Current set being collected
+        
         # Colors
         self.normal_color = '#ecf0f1'  # White/light gray
         self.highlight_color = '#e67e22'  # Orange
@@ -84,6 +94,20 @@ class ArrowGUI:
         interval_entry.pack(side='left', padx=(5, 0))
         interval_entry.bind('<Return>', self.update_interval)
         
+        # Number of sets setting
+        sets_frame = tk.Frame(control_frame, bg='#2c3e50')
+        sets_frame.pack(side='left', padx=20)
+        
+        tk.Label(sets_frame, text="Sets:", 
+                font=('Arial', 11, 'bold'), fg='#ffffff', bg='#2c3e50').pack(side='top')
+        
+        self.sets_var = tk.StringVar(value="1")
+        sets_entry = tk.Entry(sets_frame, textvariable=self.sets_var, 
+                            width=5, font=('Arial', 11, 'bold'), 
+                            bg='#ecf0f1', fg='#2c3e50', justify='center')
+        sets_entry.pack(side='top', pady=2)
+        sets_entry.bind('<Return>', self.update_sets)
+        
         # Status label to show current state
         self.status_label = tk.Label(
             main_frame,
@@ -92,7 +116,62 @@ class ArrowGUI:
             fg='#3498db',
             bg='#2c3e50'
         )
-        self.status_label.pack(pady=(0, 20))
+        self.status_label.pack(pady=(0, 15))
+        
+        # Session display frame
+        session_frame = tk.Frame(main_frame, bg='#2c3e50', relief='sunken', bd=2)
+        session_frame.pack(fill='x', padx=20, pady=(0, 10))
+        
+        # Session title
+        session_title = tk.Label(
+            session_frame,
+            text="Current Session (12 directions):",
+            font=('Arial', 10, 'bold'),
+            fg='#95a5a6',
+            bg='#2c3e50'
+        )
+        session_title.pack(pady=(5, 0))
+        
+        # Session directions display (text box)
+        self.session_text = tk.Text(
+            session_frame,
+            height=2,
+            width=50,
+            font=('Arial', 9),
+            bg='#34495e',
+            fg='#ecf0f1',
+            relief='flat',
+            bd=0,
+            wrap='word',
+            state='disabled'  # Read-only
+        )
+        self.session_text.pack(padx=10, pady=(5, 5))
+        
+        # Class balance display frame
+        balance_frame = tk.Frame(main_frame, bg='#2c3e50')
+        balance_frame.pack(fill='x', padx=20, pady=(0, 15))
+        
+        # Class balance title
+        tk.Label(balance_frame, text="Class Balance:", 
+                font=('Arial', 10, 'bold'), fg='#95a5a6', bg='#2c3e50').pack()
+        
+        # Class counters frame
+        counters_frame = tk.Frame(balance_frame, bg='#2c3e50')
+        counters_frame.pack(pady=5)
+        
+        # Individual class counters
+        self.class_labels = {}
+        for direction in self.directions:
+            label = tk.Label(
+                counters_frame,
+                text=f"{direction}: 0",
+                font=('Arial', 9),
+                fg='#bdc3c7',
+                bg='#2c3e50',
+                padx=10
+            )
+            label.pack(side='left')
+            self.class_labels[direction] = label
         
         # Arrow symbols container
         self.arrow_frame = tk.Frame(main_frame, bg='#2c3e50')
@@ -218,14 +297,23 @@ class ArrowGUI:
         self.is_collecting = True
         self.direction_count = 0  # Reset counter
         self.is_resting = False
+        self.current_session_directions = []  # Reset session tracking
+        self.current_set = 1  # Start with set 1
+        self.update_sets()  # Update total_sets from input field
+        
         self.control_btn.config(text="Stop Collection", bg='#e74c3c', 
                                activebackground='#c0392b')
-        self.status_label.config(text="Data collection started - Focus on the highlighted arrow!")
+        self.status_label.config(text=f"Data collection started - Set 1/{self.total_sets}")
+        
+        # Generate balanced session plan
+        self.generate_balanced_session()
         
         # Start the first highlight cycle
-        self.highlight_random_arrow()
+        self.highlight_next_direction()
         
         print(f"Data collection started with {self.interval/1000}s intervals")
+        print(f"Collecting {self.total_sets} set(s) of balanced data")
+        print("Balanced collection: 3 samples per direction")
         print("Rest periods: {:.1f}s between directions, {:.1f}s after 12 directions".format(
             self.interval/2000, self.interval*2/1000))
     
@@ -234,6 +322,7 @@ class ArrowGUI:
         self.is_collecting = False
         self.is_resting = False
         self.direction_count = 0
+        self.current_session_directions = []
         self.control_btn.config(text="Start Collection", bg='#2ecc71',
                                activebackground='#27ae60')
         self.status_label.config(text="Data collection stopped")
@@ -260,8 +349,58 @@ class ArrowGUI:
         except ValueError:
             self.interval_var.set("5")  # Reset to default if invalid
     
-    def highlight_random_arrow(self):
-        """Randomly select and highlight an arrow with rest periods"""
+    def update_sets(self, event=None):
+        """Update the number of sets from user input"""
+        try:
+            new_sets = int(self.sets_var.get())
+            if new_sets > 0:
+                self.total_sets = new_sets
+                print(f"Number of sets updated to {new_sets}")
+            else:
+                self.sets_var.set("1")  # Reset to default
+        except ValueError:
+            self.sets_var.set("1")  # Reset to default if invalid
+    
+    def generate_balanced_session(self):
+        """Generate a balanced sequence of directions for the session"""
+        # Create exactly 3 instances of each direction
+        session_directions = []
+        for direction in self.directions:
+            session_directions.extend([direction] * self.directions_per_class)
+        
+        # Randomize the order
+        random.shuffle(session_directions)
+        self.current_session_directions = session_directions
+        self.session_number += 1
+        
+        # Update session display
+        self.update_session_display()
+        
+        print(f"Generated balanced session #{self.session_number}: {len(session_directions)} directions")
+        print(f"Session plan: {session_directions}")
+    
+    def update_session_display(self):
+        """Update the session directions display text box"""
+        self.session_text.config(state='normal')
+        self.session_text.delete(1.0, tk.END)
+        
+        if self.current_session_directions:
+            # Format directions in a readable way
+            directions_str = " → ".join(self.current_session_directions)
+            self.session_text.insert(1.0, f"Session #{self.session_number}: {directions_str}")
+        else:
+            self.session_text.insert(1.0, "No session planned")
+        
+        self.session_text.config(state='disabled')
+    
+    def update_class_balance_display(self):
+        """Update the class balance display"""
+        for direction in self.directions:
+            count = self.direction_counts[direction]
+            self.class_labels[direction].config(text=f"{direction}: {count}")
+    
+    def highlight_next_direction(self):
+        """Highlight the next direction from the balanced session plan"""
         if not self.is_collecting:
             return
         
@@ -270,27 +409,38 @@ class ArrowGUI:
             self.start_long_rest()
             return
         
-        # Reset previous highlight
-        self.reset_all_arrows()
+        # Check if we have directions left in current session
+        if not self.current_session_directions:
+            # Generate new balanced session
+            self.generate_balanced_session()
         
-        # Choose random direction
-        directions = ["UP", "DOWN", "LEFT", "RIGHT"]
-        selected_direction = random.choice(directions)
+        # Get next direction from the balanced plan
+        selected_direction = self.current_session_directions.pop(0)
         self.current_highlighted = selected_direction
         self.direction_count += 1
+        
+        # Update counters
+        self.direction_counts[selected_direction] += 1
+        
+        # Reset all arrows to normal color first
+        self.reset_all_arrows()
         
         # Highlight the selected arrow
         selected_label = self.arrow_labels[selected_direction]
         selected_label.config(fg=self.highlight_color)  # Orange color
         
         # Update status
-        self.status_label.config(text=f"Focus on: {selected_direction} ({self.direction_count}/12)")
+        self.status_label.config(text=f"Set {self.current_set}/{self.total_sets} - Focus on: {selected_direction} ({self.direction_count}/12)")
+        
+        # Update displays
+        self.update_class_balance_display()
+        self.update_session_display()
         
         # Log for data collection
         timestamp = time.time()
-        print(f"[{timestamp:.3f}] Highlighted: {selected_direction} (#{self.direction_count})")
+        print(f"[{timestamp:.3f}] Highlighted: {selected_direction} (#{self.direction_count}) - Total: {self.direction_counts[selected_direction]}")
         
-        # Schedule rest period (interval/2), then next highlight
+        # Schedule rest period (interval), then short rest
         self.collection_timer = self.root.after(self.interval, self.start_short_rest)
     
     def start_short_rest(self):
@@ -318,11 +468,23 @@ class ArrowGUI:
         self.is_resting = True
         self.reset_all_arrows()
         
+        # Check if we've completed the current set
+        if self.current_set >= self.total_sets:
+            # Completed all sets
+            self.status_label.config(text=f"Collection Complete! Finished {self.total_sets} set(s)")
+            print(f"Data collection completed! Collected {self.total_sets} set(s)")
+            self.stop_collection()
+            return
+        
+        # Move to next set
+        self.current_set += 1
+        self.direction_count = 0  # Reset direction counter for new set
+        
         rest_duration = self.interval * 2  # interval*2 seconds
-        self.status_label.config(text=f"Long rest period... ({rest_duration/1000:.1f}s) - Completed {self.direction_count} directions")
+        self.status_label.config(text=f"Set Break... ({rest_duration/1000:.1f}s) - Starting Set {self.current_set}/{self.total_sets}")
         
         timestamp = time.time()
-        print(f"[{timestamp:.3f}] Long rest period ({rest_duration/1000:.1f}s) after {self.direction_count} directions")
+        print(f"[{timestamp:.3f}] Set break ({rest_duration/1000:.1f}s) - Starting set {self.current_set}/{self.total_sets}")
         
         # Schedule next highlight after long rest
         self.collection_timer = self.root.after(rest_duration, self.end_rest)
@@ -333,7 +495,7 @@ class ArrowGUI:
             return
         
         self.is_resting = False
-        self.highlight_random_arrow()
+        self.highlight_next_direction()  # Use balanced highlighting
     
     def reset_all_arrows(self):
         """Reset all arrows to normal color"""
