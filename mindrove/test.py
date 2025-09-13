@@ -41,6 +41,10 @@ LABELS = {
     2: "reach_forward",
     3: "rotate_right",
     4: "rotate_left",
+    5: "forearm_supinate",
+    6: "forearm_pronate",
+    7: "arm_up",
+    8: "arm_down",
 }
 
 # ---------- axis & filtering helpers ----------
@@ -86,6 +90,7 @@ def _features(ax, ay, az, gx, gy, gz, fs: int):
     gy_rms  = float(np.sqrt(np.mean(gy ** 2)))
     gz_rms  = float(np.sqrt(np.mean(gz ** 2)))
     gz_mean = float(np.mean(gz))
+    gx_mean = float(np.mean(gx))
 
     accel_mag = np.sqrt(ax**2 + ay**2 + az**2)
     motion_rms = float(np.sqrt(np.mean((accel_mag - np.mean(accel_mag)) ** 2)))
@@ -96,7 +101,7 @@ def _features(ax, ay, az, gx, gy, gz, fs: int):
     return dict(
         ax_mean=ax_mean, ay_mean=ay_mean, az_mean=az_mean,
         ax_rms=ax_rms, ay_rms=ay_rms, az_rms=az_rms,
-        gx_rms=gx_rms, gy_rms=gy_rms, gz_rms=gz_rms, gz_mean=gz_mean,
+        gx_rms=gx_rms, gy_rms=gy_rms, gz_rms=gz_rms, gz_mean=gz_mean, gx_mean=gx_mean,
         motion_rms=motion_rms,
         ax_hp_rms=ax_hp_rms, az_hp_rms=az_hp_rms,
     )
@@ -104,13 +109,17 @@ def _features(ax, ay, az, gx, gy, gz, fs: int):
 # ---------- classification ----------
 def classify(feat: dict, TH: dict) -> int:
     """
-    Returns a label id using calibrated thresholds.
-    Order: swing → reach → rotation → idle
-      - Prioritize swing before rotation to avoid gz spikes from swing being misread as rotation.
-      - Rotation requires dominant yaw, consistent yaw sign, and low translation.
+    Extended classifier with forearm pronation/supination (gx) and arm elevation (az).
+    Priority order now:
+      swing → reach → yaw rotation → forearm rotation → arm up/down → idle
     """
     # --- motion gate ---
     if feat['motion_rms'] < TH.get('min_motion_mag', 0.12):
+        # Still allow arm up/down if strongly above/below thresholds while mostly static
+        if feat['az_mean'] > TH.get('arm_up_az_mean', 0.40):
+            return 7
+        if feat['az_mean'] < TH.get('arm_down_az_mean', -0.40):
+            return 8
         return 0
 
     # --- handy locals ---
@@ -164,7 +173,26 @@ def classify(feat: dict, TH: dict) -> int:
     if yaw_dominant and yaw_sign_consistent and pitch_not_dominant and not rot_veto:
         return 3 if feat['gz_mean'] > 0 else 4
 
-    # --- 4) idle/other ---
+    # --- 4) forearm rotation (pronation/supination around x) ---
+    forearm_rms_thr   = TH.get('forearm_rot_rms', 60.0)
+    forearm_dom_ratio = TH.get('forearm_dom_ratio', 1.3)
+    forearm_sign_cons = TH.get('forearm_sign_consistency', 0.35)
+    gx_bias_ratio = abs(feat['gx_mean']) / (feat['gx_rms'] + 1e-6)
+    forearm_dominant = (
+        feat['gx_rms'] > forearm_rms_thr and
+        feat['gx_rms'] > forearm_dom_ratio * max(feat['gy_rms'], feat['gz_rms'])
+    )
+    if forearm_dominant and gx_bias_ratio >= forearm_sign_cons:
+        # Positive gx_mean => supinate (label 5), negative => pronate (label 6). Adjust if reversed on device.
+        return 5 if feat['gx_mean'] > 0 else 6
+
+    # --- 5) arm elevation (up/down) ---
+    if feat['az_mean'] > TH.get('arm_up_az_mean', 0.40):
+        return 7
+    if feat['az_mean'] < TH.get('arm_down_az_mean', -0.40):
+        return 8
+
+    # --- 6) idle/other ---
     return 0
 
 
@@ -190,6 +218,11 @@ def relax_thresholds(thresh: dict, scale: float = 0.7) -> dict:
     # Be a bit more forgiving about translation during rotation
     for k in ["max_ax_mean_for_rotation", "max_az_abs_mean_for_rotation", "max_ax_rms_for_rotation"]:
         if k in t: t[k] *= 1.15
+    for k in ["forearm_rot_rms"]:
+        if k in t: t[k] *= scale
+    # Make elevation a bit easier (move toward 0)
+    if 'arm_up_az_mean' in t: t['arm_up_az_mean'] *= scale
+    if 'arm_down_az_mean' in t: t['arm_down_az_mean'] *= scale  # less negative magnitude so easier
     return t
 
 # ---------- neutral projection ----------

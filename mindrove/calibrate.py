@@ -46,8 +46,12 @@ REST_SECONDS_BETWEEN    = 3.0
 MOTIONS = [
     ("swing_down",    "Swing DOWN clearly (arm/elbow swing)"),
     ("reach_forward", "Reach FORWARD / push"),
-    ("rotate_left",   "Rotate LEFT in place"),
-    ("rotate_right",  "Rotate RIGHT in place"),
+    ("rotate_left",   "Rotate LEFT in place (yaw)"),
+    ("rotate_right",  "Rotate RIGHT in place (yaw)"),
+    ("pronate",       "Rotate forearm PRONATION (palm toward floor)"),
+    ("supinate",      "Rotate forearm SUPINATION (palm up)"),
+    ("arm_up",        "Raise forearm / arm UP"),
+    ("arm_down",      "Lower forearm / arm DOWN")
 ]
 
 # ---------- axis & filtering helpers ----------
@@ -93,6 +97,7 @@ def _features(ax, ay, az, gx, gy, gz, fs: int):
     gy_rms  = float(np.sqrt(np.mean(gy ** 2)))
     gz_rms  = float(np.sqrt(np.mean(gz ** 2)))
     gz_mean = float(np.mean(gz))
+    gx_mean = float(np.mean(gx))
 
     accel_mag = np.sqrt(ax**2 + ay**2 + az**2)
     motion_rms = float(np.sqrt(np.mean((accel_mag - np.mean(accel_mag)) ** 2)))
@@ -103,7 +108,7 @@ def _features(ax, ay, az, gx, gy, gz, fs: int):
     return dict(
         ax_mean=ax_mean, ay_mean=ay_mean, az_mean=az_mean,
         ax_rms=ax_rms, ay_rms=ay_rms, az_rms=az_rms,
-        gx_rms=gx_rms, gy_rms=gy_rms, gz_rms=gz_rms, gz_mean=gz_mean,
+        gx_rms=gx_rms, gy_rms=gy_rms, gz_rms=gz_rms, gz_mean=gz_mean, gx_mean=gx_mean,
         motion_rms=motion_rms,
         ax_hp_rms=ax_hp_rms, az_hp_rms=az_hp_rms,
     )
@@ -238,7 +243,7 @@ def derive_thresholds(calib: dict) -> dict:
     else:
         TH['swing_neg_az_mean'] = -0.55; TH['swing_pitch_rms'] = 60.0
 
-    # rotation
+    # yaw rotation
     rots = calib.get('rotate_left', []) + calib.get('rotate_right', [])
     if rots:
         gz_rms_vals = [f['gz_rms'] for f in rots]
@@ -254,6 +259,32 @@ def derive_thresholds(calib: dict) -> dict:
             max_ax_mean_for_rotation=0.35, max_az_abs_mean_for_rotation=0.35,
             max_ax_rms_for_rotation=0.35,
         ))
+
+    # forearm pronation/supination (gx axis)
+    forearm = calib.get('pronate', []) + calib.get('supinate', [])
+    if forearm:
+        gx_rms_vals = [f['gx_rms'] for f in forearm]
+        dom_ratios  = [f['gx_rms'] / max(1e-6, max(f['gy_rms'], f['gz_rms'])) for f in forearm]
+        sign_cons   = [abs(f['gx_mean']) / (f['gx_rms'] + 1e-6) for f in forearm if f['gx_rms'] > 1e-6]
+        TH['forearm_rot_rms'] = _pct(gx_rms_vals, 55)
+        TH['forearm_dom_ratio'] = max(1.2, _pct(dom_ratios, 40))
+        TH['forearm_sign_consistency'] = max(0.25, _pct(sign_cons, 40)) if sign_cons else 0.35
+    else:
+        TH['forearm_rot_rms'] = 60.0
+        TH['forearm_dom_ratio'] = 1.3
+        TH['forearm_sign_consistency'] = 0.35
+
+    # arm up/down (use az_mean distribution)
+    arm_up_seq = calib.get('arm_up', [])
+    arm_down_seq = calib.get('arm_down', [])
+    if arm_up_seq:
+        TH['arm_up_az_mean'] = _pct([f['az_mean'] for f in arm_up_seq], 45)
+    else:
+        TH['arm_up_az_mean'] = 0.40
+    if arm_down_seq:
+        TH['arm_down_az_mean'] = _pct([f['az_mean'] for f in arm_down_seq], 55)  # will be negative
+    else:
+        TH['arm_down_az_mean'] = -0.40
 
     return TH
 
