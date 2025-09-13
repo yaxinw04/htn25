@@ -1,0 +1,34 @@
+name: htn25-arrow-gui
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  # Python runtime
+  - python=3.12
+  
+  # GUI toolkit (tkinter is included with Python)
+  - tk=8.6.*
+  
+  # Optional: Enhanced capabilities
+  # - pillow>=10.0.0  # Image processing
+  # - matplotlib>=3.7.0  # Plotting
+  # - numpy>=1.24.0  # Numerical operations
+  
+  # Development tools
+  - pip
+  
+  # Install additional packages via pip if needed
+  - pip:
+    # Add pip-only packages here if needed
+    # - some-pip-only-package
+    
+# Environment setup instructions:
+# 1. Create environment: conda env create -f environment.yml
+# 2. Activate environment: conda activate htn25-arrow-gui
+# 3. Run application: python main.py
+
+# Alternative with mamba (faster):
+# 1. Create environment: mamba env create -f environment.yml
+# 2. Activate environment: mamba activate htn25-arrow-gui
+# 3. Run application: python main.py
