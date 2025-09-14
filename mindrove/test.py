@@ -38,13 +38,7 @@ AXIS_MAP = dict(ax=(0, +1), ay=(1, +1), az=(2, +1),
 LABELS = {
     0: "idle/other",
     1: "swing_down",
-    2: "reach_forward",
-    3: "rotate_right",
-    4: "rotate_left",
-    5: "forearm_supinate",
-    6: "forearm_pronate",
     7: "arm_up",
-    8: "arm_down",
 }
 
 # ---------- axis & filtering helpers ----------
@@ -109,30 +103,14 @@ def _features(ax, ay, az, gx, gy, gz, fs: int):
 # ---------- classification ----------
 def classify(feat: dict, TH: dict) -> int:
     """
-    Extended classifier with forearm pronation/supination (gx) and arm elevation (az).
-    Priority order now:
-      swing → reach → yaw rotation → forearm rotation → arm up/down → idle
+    Simplified classifier for only swing_down and arm_up gestures.
     """
     # --- motion gate ---
     if feat['motion_rms'] < TH.get('min_motion_mag', 0.12):
-        # Still allow arm up/down if strongly above/below thresholds while mostly static
+        # Still allow arm up if strongly above threshold while mostly static
         if feat['az_mean'] > TH.get('arm_up_az_mean', 0.40):
             return 7
-        if feat['az_mean'] < TH.get('arm_down_az_mean', -0.40):
-            return 8
         return 0
-
-    # --- handy locals ---
-    yaw_dom_ratio = TH.get('yaw_dom_ratio', 1.4)
-    yaw_rot_rms   = TH.get('yaw_rot_rms', 80.0)
-
-    # A bit stricter than before for rotation veto (low translation)
-    rot_ax_mean_max  = TH.get('max_ax_mean_for_rotation', 0.35)
-    rot_az_mean_max  = TH.get('max_az_abs_mean_for_rotation', 0.35)
-    rot_ax_rms_max   = TH.get('max_ax_rms_for_rotation', 0.35)
-
-    # Bias/sign consistency for yaw (sustained left/right)
-    yaw_bias_ratio = abs(feat['gz_mean']) / (feat['gz_rms'] + 1e-6)  # 0..1
 
     # --- 1) SWING DOWN (prioritized) ---
     # Downward accel (−Z) + strong pitch (gy)
@@ -140,59 +118,11 @@ def classify(feat: dict, TH: dict) -> int:
         feat['gy_rms']  > TH.get('swing_pitch_rms', 60.0)):
         return 1
 
-    # --- 2) REACH FORWARD ---
-    if (feat['ax_mean'] > TH.get('reach_ax_mean', 0.55) and
-        feat['ax_rms']  > TH.get('reach_ax_rms', 0.35) and
-        feat['gz_rms']  < yaw_rot_rms):
-        return 2
-
-    # --- 3) ROTATION (pickier) ---
-    # Dominant yaw AND consistent yaw sign AND low translation
-    yaw_dominant = (
-        feat['gz_rms'] > yaw_rot_rms and
-        feat['gz_rms'] > yaw_dom_ratio * max(feat['gx_rms'], feat['gy_rms'])
-    )
-
-    # Keep translation small while rotating in place
-    rot_veto = (
-        abs(feat['ax_mean']) > rot_ax_mean_max or
-        abs(feat['az_mean']) > rot_az_mean_max or
-        feat['ax_rms']       > rot_ax_rms_max or
-        feat['ax_hp_rms']    > rot_ax_rms_max or
-        feat['az_hp_rms']    > rot_ax_rms_max
-    )
-
-    # NEW: require that yaw sign is reasonably consistent across the window.
-    # If gz oscillates (e.g., swing or jitter), gz_mean will be small vs gz_rms.
-    # Calibrated default works, but you can also store this in thresholds later.
-    yaw_sign_consistent = yaw_bias_ratio >= TH.get('yaw_sign_consistency', 0.35)
-
-    # Also ensure pitch isn’t dominating (helps disambiguate swing)
-    pitch_not_dominant = feat['gy_rms'] < 0.8 * feat['gz_rms']
-
-    if yaw_dominant and yaw_sign_consistent and pitch_not_dominant and not rot_veto:
-        return 3 if feat['gz_mean'] > 0 else 4
-
-    # --- 4) forearm rotation (pronation/supination around x) ---
-    forearm_rms_thr   = TH.get('forearm_rot_rms', 60.0)
-    forearm_dom_ratio = TH.get('forearm_dom_ratio', 1.3)
-    forearm_sign_cons = TH.get('forearm_sign_consistency', 0.35)
-    gx_bias_ratio = abs(feat['gx_mean']) / (feat['gx_rms'] + 1e-6)
-    forearm_dominant = (
-        feat['gx_rms'] > forearm_rms_thr and
-        feat['gx_rms'] > forearm_dom_ratio * max(feat['gy_rms'], feat['gz_rms'])
-    )
-    if forearm_dominant and gx_bias_ratio >= forearm_sign_cons:
-        # Positive gx_mean => supinate (label 5), negative => pronate (label 6). Adjust if reversed on device.
-        return 5 if feat['gx_mean'] > 0 else 6
-
-    # --- 5) arm elevation (up/down) ---
+    # --- 2) ARM UP ---
     if feat['az_mean'] > TH.get('arm_up_az_mean', 0.40):
         return 7
-    if feat['az_mean'] < TH.get('arm_down_az_mean', -0.40):
-        return 8
 
-    # --- 6) idle/other ---
+    # --- 3) idle/other ---
     return 0
 
 
@@ -211,18 +141,12 @@ def relax_thresholds(thresh: dict, scale: float = 0.7) -> dict:
     For negative thresholds (e.g., swing_neg_az_mean), scaling toward 0 makes them easier to meet.
     """
     t = thresh.copy()
-    for k in ["reach_ax_mean", "reach_ax_rms", "swing_pitch_rms", "yaw_rot_rms", "min_motion_mag"]:
+    for k in ["swing_pitch_rms", "min_motion_mag"]:
         if k in t: t[k] *= scale
     if "swing_neg_az_mean" in t:
         t["swing_neg_az_mean"] *= scale  # less negative = easier swing
-    # Be a bit more forgiving about translation during rotation
-    for k in ["max_ax_mean_for_rotation", "max_az_abs_mean_for_rotation", "max_ax_rms_for_rotation"]:
-        if k in t: t[k] *= 1.15
-    for k in ["forearm_rot_rms"]:
-        if k in t: t[k] *= scale
     # Make elevation a bit easier (move toward 0)
     if 'arm_up_az_mean' in t: t['arm_up_az_mean'] *= scale
-    if 'arm_down_az_mean' in t: t['arm_down_az_mean'] *= scale  # less negative magnitude so easier
     return t
 
 # ---------- neutral projection ----------
