@@ -1,0 +1,209 @@
+{
+  "thresholds": {
+    "swing_az_valley_threshold": -1.3446275331022202,
+    "swing_intensity_threshold": 1.7555115107110573,
+    "swing_rotation_threshold": 374.8601923619643,
+    "swing_motion_threshold": 1.9493893370491562,
+    "arm_az_peak_threshold": 0.13899533100113157,
+    "arm_swing_threshold": 1.8453365625410443,
+    "arm_motion_threshold": 1.7928718504251695,
+    "min_motion_threshold": 1.441260796415953
+  },
+  "calibration_info": {
+    "method": "improved_peak_based",
+    "sample_duration": 1.0,
+    "samples_per_gesture": 3,
+    "rest_duration": 2.0,
+    "total_samples": 12
+  },
+  "raw_features": {
+    "neutral": [
+      {
+        "ax_peak": 0.24046231589589329,
+        "ay_peak": -2.816799418279425e-05,
+        "az_peak": 0.12664777233889812,
+        "ax_valley": -0.056690738517659496,
+        "ay_valley": -1.2402358002793061,
+        "az_valley": -0.26540995528766165,
+        "gx_peak_abs": 102.73648449665788,
+        "gy_peak_abs": 144.73957487247208,
+        "gz_peak_abs": 61.376516397282316,
+        "swing_intensity": 0.39205772762655977,
+        "rotation_intensity": 144.73957487247208,
+        "total_motion": 1.241260796415953,
+        "motion_duration": 17.152
+      },
+      {
+        "ax_peak": 0.24046231589589329,
+        "ay_peak": -2.816799418279425e-05,
+        "az_peak": 0.12664777233889812,
+        "ax_valley": -0.056690738517659496,
+        "ay_valley": -1.2402359594986452,
+        "az_valley": -0.26768298892064135,
+        "gx_peak_abs": 102.73648147875953,
+        "gy_peak_abs": 144.90377352913924,
+        "gz_peak_abs": 61.37651639948728,
+        "swing_intensity": 0.3943307612595395,
+        "rotation_intensity": 144.90377352913924,
+        "total_motion": 1.2412606604101002,
+        "motion_duration": 13.742
+      },
+      {
+        "ax_peak": 0.24046239926534108,
+        "ay_peak": -2.750978035560012e-05,
+        "az_peak": 0.1266476797033729,
+        "ax_valley": -0.056714038338992356,
+        "ay_valley": -1.2402332155527778,
+        "az_valley": -0.26851242857332325,
+        "gx_peak_abs": 102.73647585260392,
+        "gy_peak_abs": 144.84657337699898,
+        "gz_peak_abs": 61.37651636460678,
+        "swing_intensity": 0.3951601082766961,
+        "rotation_intensity": 144.84657337699898,
+        "total_motion": 1.2412578422986098,
+        "motion_duration": 11.686
+      }
+    ],
+    "swing_down": [
+      {
+        "ax_peak": 0.44732726341559675,
+        "ay_peak": 1.571042342234849,
+        "az_peak": 0.16091246390743502,
+        "ax_valley": -2.060546323314485,
+        "ay_valley": -1.7406464879010712,
+        "az_valley": -1.0576997946416997,
+        "gx_peak_abs": 459.9808037230734,
+        "gy_peak_abs": 462.3147526511426,
+        "gz_peak_abs": 535.5145605170919,
+        "swing_intensity": 2.507873586730082,
+        "rotation_intensity": 535.5145605170919,
+        "total_motion": 2.7848419100702233,
+        "motion_duration": 6.052
+      },
+      {
+        "ax_peak": 0.44732726341559675,
+        "ay_peak": 1.6096824697352115,
+        "az_peak": 0.16091246390743502,
+        "ax_valley": -2.0803403608651188,
+        "ay_valley": -1.7512493595589547,
+        "az_valley": -1.680784416377775,
+        "gx_peak_abs": 537.7507515549964,
+        "gy_peak_abs": 482.5743823052694,
+        "gz_peak_abs": 536.2674715205665,
+        "swing_intensity": 2.5276676242807157,
+        "rotation_intensity": 537.7507515549964,
+        "total_motion": 2.988119750708616,
+        "motion_duration": 7.296
+      },
+      {
+        "ax_peak": 0.44732726341559675,
+        "ay_peak": 1.7484894474252097,
+        "az_peak": 0.1609124639074344,
+        "ax_valley": -2.085069809358437,
+        "ay_valley": -1.751249359558955,
+        "az_valley": -1.680784416377775,
+        "gx_peak_abs": 562.405735314436,
+        "gy_peak_abs": 516.2853948165771,
+        "gz_peak_abs": 542.967198459857,
+        "swing_intensity": 2.532397072774034,
+        "rotation_intensity": 562.405735314436,
+        "total_motion": 2.988119750708616,
+        "motion_duration": 9.774
+      }
+    ],
+    "arm_up": [
+      {
+        "ax_peak": 0.9904911282099704,
+        "ay_peak": 1.7484894474252097,
+        "az_peak": 0.19856475857304512,
+        "ax_valley": -2.085069809358437,
+        "ay_valley": -2.0755465588021034,
+        "az_valley": -1.680784416377775,
+        "gx_peak_abs": 562.405735314436,
+        "gy_peak_abs": 516.2853948165771,
+        "gz_peak_abs": 542.967198459857,
+        "swing_intensity": 3.075560937568407,
+        "rotation_intensity": 562.405735314436,
+        "total_motion": 2.988119750708616,
+        "motion_duration": 12.57
+      },
+      {
+        "ax_peak": 1.1228215724594093,
+        "ay_peak": 1.7484894474252097,
+        "az_peak": 0.19856475857304512,
+        "ax_valley": -2.085069809358437,
+        "ay_valley": -2.0755465588021034,
+        "az_valley": -1.680784416377775,
+        "gx_peak_abs": 562.405735314436,
+        "gy_peak_abs": 516.2853948165771,
+        "gz_peak_abs": 542.967198459857,
+        "swing_intensity": 3.2078913818178463,
+        "rotation_intensity": 562.405735314436,
+        "total_motion": 2.988119750708616,
+        "motion_duration": 16.384
+      },
+      {
+        "ax_peak": 1.1466978203053324,
+        "ay_peak": 1.7484894474252097,
+        "az_peak": 0.3747186402452578,
+        "ax_valley": -2.085069809358437,
+        "ay_valley": -2.0765899281169453,
+        "az_valley": -1.680784416377775,
+        "gx_peak_abs": 562.405735314436,
+        "gy_peak_abs": 516.2853948165771,
+        "gz_peak_abs": 545.8822158885697,
+        "swing_intensity": 3.2317676296637696,
+        "rotation_intensity": 562.405735314436,
+        "total_motion": 2.988119750708616,
+        "motion_duration": 21.756
+      }
+    ],
+    "reach_forward": [
+      {
+        "ax_peak": 1.1466978203053324,
+        "ay_peak": 1.7484894474252097,
+        "az_peak": 0.3747186402452578,
+        "ax_valley": -2.085069809358437,
+        "ay_valley": -2.0765899281169453,
+        "az_valley": -1.680784416377775,
+        "gx_peak_abs": 562.405735314436,
+        "gy_peak_abs": 516.2853948165771,
+        "gz_peak_abs": 545.8822158885697,
+        "swing_intensity": 3.2317676296637696,
+        "rotation_intensity": 562.405735314436,
+        "total_motion": 2.988119750708616,
+        "motion_duration": 24.144
+      },
+      {
+        "ax_peak": 1.1466978203053388,
+        "ay_peak": 1.74848944742521,
+        "az_peak": 0.374718640245258,
+        "ax_valley": -2.085069809358447,
+        "ay_valley": -2.0765899281169453,
+        "az_valley": -1.680784416377775,
+        "gx_peak_abs": 562.405735314436,
+        "gy_peak_abs": 516.2853948165771,
+        "gz_peak_abs": 545.8822158885706,
+        "swing_intensity": 3.231767629663786,
+        "rotation_intensity": 562.405735314436,
+        "total_motion": 2.9881197507086155,
+        "motion_duration": 21.91
+      },
+      {
+        "ax_peak": 1.1466978203053388,
+        "ay_peak": 1.74848944742521,
+        "az_peak": 0.6056703067767486,
+        "ax_valley": -2.085069809358447,
+        "ay_valley": -2.0765899281169453,
+        "az_valley": -1.680784416377775,
+        "gx_peak_abs": 562.405735314436,
+        "gy_peak_abs": 516.2853948165771,
+        "gz_peak_abs": 545.8822158885706,
+        "swing_intensity": 3.231767629663786,
+        "rotation_intensity": 562.405735314436,
+        "total_motion": 2.988119750708616,
+        "motion_duration": 23.002
+      }
+    ]
+  }
+}
