@@ -131,12 +131,38 @@ def _project_to_neutral(acc3xN, gyr3xN, B_cols, gyro_bias):
     return acc_log, gyr_log
 
 class StickyLabel:
-    def __init__(self, hold_windows=2):
-        self.prev=0; self.hold=0; self.hold_windows=hold_windows
+    def __init__(self, hold_windows=2, min_stable_time=1.0):
+        self.prev=0
+        self.hold=0
+        self.hold_windows=hold_windows
+        self.last_change_time = 0
+        self.min_stable_time = min_stable_time  # Minimum time between gesture changes
+        self.current_gesture_start = 0
+        
     def update(self, new):
-        if new==self.prev: self.hold=self.hold_windows; return self.prev
-        if self.hold>0: self.hold-=1; return self.prev
-        self.prev=new; self.hold=self.hold_windows; return self.prev
+        current_time = time.time()
+        
+        # If this is the same gesture, just extend the hold
+        if new == self.prev: 
+            self.hold = self.hold_windows
+            return self.prev
+            
+        # If we're in a hold period, ignore the new gesture
+        if self.hold > 0: 
+            self.hold -= 1
+            return self.prev
+            
+        # Check if enough time has passed since last gesture change
+        # Only allow gesture changes if enough time has passed OR going to idle
+        if (current_time - self.last_change_time < self.min_stable_time and 
+            new != 0 and self.prev != 0):  # Don't block going to idle
+            return self.prev  # Keep previous gesture, ignore rapid change
+            
+        # Accept the new gesture
+        self.prev = new
+        self.hold = self.hold_windows
+        self.last_change_time = current_time
+        return self.prev
 
 def main():
     parser = argparse.ArgumentParser()
